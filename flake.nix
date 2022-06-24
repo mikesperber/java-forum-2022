@@ -40,7 +40,7 @@
           # The default target for `nix run`.  This builds the
           # reveal.js slides.
           default = let
-            emacs = pkgs.emacsWithPackages (p: [ p.org-re-reveal ]);
+            emacs = pkgs.emacsWithPackages (p: [ p.org-re-reveal p.kotlin-mode ]);
             app = pkgs.writeShellScript "org-re-reveal" ''
               if [ ! -e plantuml/plugins ]; then
                 mkdir -p plantuml/plugins

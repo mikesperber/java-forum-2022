@@ -18,6 +18,19 @@ This is an example text.  Now for some Emacs Lisp:
       (message "This"))))
 #+end_src
 
+* Kotlin code
+
+#+begin_src kotlin
+interface UnsafeProductMRunnerImplementation  {
+  suspend fun findAllProducts(): Flow<Product>
+  suspend fun findProductById(id: ProductId): Option<Product>
+  suspend fun countProducts(): Long
+  suspend fun createProduct(product: Product)
+
+  suspend fun productsSaved(): Flow<Product>
+}
+#+end_src
+
 * A slide with LaTeX
 
 We can even write fancy math symbols and stuff.  Like
