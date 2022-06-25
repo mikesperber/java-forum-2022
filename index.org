@@ -19,9 +19,11 @@
 - The training was not in Kotlin
 - We want to do better now
 
-* How to do Functional Programming in Kotlin?
+* Post Mortem: How to do Functional Programming in Kotlin?
 
-- ...
+- Lists / Option
+- Validation
+- Typesystem
 
 * Lists / Option
 
@@ -77,7 +79,10 @@ interface UnsafeProductMRunnerImplementation  {
 
 * Which problems to solve with Functional Programming?
 
-- ...
+- Stay true to Hexagonal Architecture
+    - Separation of concerns
+    - Pure Domain
+    - ...
 
 * Lets see some code!
 
