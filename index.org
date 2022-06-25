@@ -1,0 +1,169 @@
+#+title: Function Domain Driven Design with Kotlin
+#+author: Michael Sperber & Benedikt Stemmildt
+#+REVEAL_PLUGINS: (notes)
+#+REVEAL_THEME: ./css/themes/active.css
+#+REVEAL_HLEVEL: 100
+#+REVEAL_TRANS: none
+#+OPTIONS: toc:nil reveal-center:f H:4
+
+* BLUME2000 Kotlin project: Introduction to Functional Programming
+
+- Rebuild whole shop
+- Use Kotlin
+- Use Functional Programming
+- Let's have a training
+
+* Did it help?
+
+- No – Why not?
+- The training was not in Kotlin
+- We want to do better now
+
+* How to do Functional Programming in Kotlin?
+
+- ...
+
+* Lists / Option
+
+#+begin_src kotlin
+interface UnsafeProductMRunnerImplementation  {
+  suspend fun findAllProducts(): Flow<Product>
+  suspend fun findProductById(id: ProductId): Option<Product>
+  suspend fun countProducts(): Long
+  suspend fun createProduct(product: Product)
+
+  suspend fun productsSaved(): Flow<Product>
+}
+#+end_src
+
+* Validation
+
+#+begin_src kotlin
+interface UnsafeProductMRunnerImplementation  {
+  suspend fun findAllProducts(): Flow<Product>
+  suspend fun findProductById(id: ProductId): Option<Product>
+  suspend fun countProducts(): Long
+  suspend fun createProduct(product: Product)
+
+  suspend fun productsSaved(): Flow<Product>
+}
+#+end_src
+
+* Typesystem
+
+#+begin_src kotlin
+interface UnsafeProductMRunnerImplementation  {
+  suspend fun findAllProducts(): Flow<Product>
+  suspend fun findProductById(id: ProductId): Option<Product>
+  suspend fun countProducts(): Long
+  suspend fun createProduct(product: Product)
+
+  suspend fun productsSaved(): Flow<Product>
+}
+#+end_src
+
+* Arrow
+
+#+begin_src kotlin
+interface UnsafeProductMRunnerImplementation  {
+  suspend fun findAllProducts(): Flow<Product>
+  suspend fun findProductById(id: ProductId): Option<Product>
+  suspend fun countProducts(): Long
+  suspend fun createProduct(product: Product)
+
+  suspend fun productsSaved(): Flow<Product>
+}
+#+end_src
+
+* Which problems to solve with Functional Programming?
+
+- ...
+
+* Lets see some code!
+
+- Separation of procedure and structure => Monad
+- ...
+
+* Monads -> with a lot of brackets
+
+#+begin_src kotlin
+interface UnsafeProductMRunnerImplementation  {
+  suspend fun findAllProducts(): Flow<Product>
+  suspend fun findProductById(id: ProductId): Option<Product>
+  suspend fun countProducts(): Long
+  suspend fun createProduct(product: Product)
+
+  suspend fun productsSaved(): Flow<Product>
+}
+#+end_src
+
+* bind -> still a lot of brackets
+
+#+begin_src kotlin
+interface UnsafeProductMRunnerImplementation  {
+  suspend fun findAllProducts(): Flow<Product>
+  suspend fun findProductById(id: ProductId): Option<Product>
+  suspend fun countProducts(): Long
+  suspend fun createProduct(product: Product)
+
+  suspend fun productsSaved(): Flow<Product>
+}
+#+end_src
+
+* Coroutine -> why always .susp()
+
+#+begin_src kotlin
+interface UnsafeProductMRunnerImplementation  {
+  suspend fun findAllProducts(): Flow<Product>
+  suspend fun findProductById(id: ProductId): Option<Product>
+  suspend fun countProducts(): Long
+  suspend fun createProduct(product: Product)
+
+  suspend fun productsSaved(): Flow<Product>
+}
+#+end_src
+
+* Runner -> but without separation of concern
+
+#+begin_src kotlin
+interface UnsafeProductMRunnerImplementation  {
+  suspend fun findAllProducts(): Flow<Product>
+  suspend fun findProductById(id: ProductId): Option<Product>
+  suspend fun countProducts(): Long
+  suspend fun createProduct(product: Product)
+
+  suspend fun productsSaved(): Flow<Product>
+}
+#+end_src
+
+* Decorator -> still not DDD style
+
+#+begin_src kotlin
+interface UnsafeProductMRunnerImplementation  {
+  suspend fun findAllProducts(): Flow<Product>
+  suspend fun findProductById(id: ProductId): Option<Product>
+  suspend fun countProducts(): Long
+  suspend fun createProduct(product: Product)
+
+  suspend fun productsSaved(): Flow<Product>
+}
+#+end_src
+
+* Move stuff around -> Nice.
+
+#+begin_src kotlin
+interface UnsafeProductMRunnerImplementation  {
+  suspend fun findAllProducts(): Flow<Product>
+  suspend fun findProductById(id: ProductId): Option<Product>
+  suspend fun countProducts(): Long
+  suspend fun createProduct(product: Product)
+
+  suspend fun productsSaved(): Flow<Product>
+}
+#+end_src
+
+* Conclusion
+
+- Spring
+- Purity of domain
+- ...

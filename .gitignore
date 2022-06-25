@@ -2,3 +2,4 @@
 *.pdf
 plantuml/plugins
 flake.lock
+.idea
