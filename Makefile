@@ -1,4 +1,4 @@
-SOURCES = $(wildcard *.org)
+SOURCES = index.org
 HTML = $(SOURCES:.org=.html)
 PDF = $(SOURCES:.org=.pdf)
 CHROME = $(shell which google-chrome-beta || which google-chrome-stable || which google-chrome)
