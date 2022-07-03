@@ -23,59 +23,232 @@
 
 - Lists / Option
 - Validation
-- Typesystem
+- Typeystem
 
 * Lists / Option
 
-#+begin_src kotlin
-interface UnsafeProductMRunnerImplementation  {
-  suspend fun findAllProducts(): Flow<Product>
-  suspend fun findProductById(id: ProductId): Option<Product>
-  suspend fun countProducts(): Long
-  suspend fun createProduct(product: Product)
-
-  suspend fun productsSaved(): Flow<Product>
-}
-#+end_src
+FIXME
 
 * Validation
 
-#+begin_src kotlin
-interface UnsafeProductMRunnerImplementation  {
-  suspend fun findAllProducts(): Flow<Product>
-  suspend fun findProductById(id: ProductId): Option<Product>
-  suspend fun countProducts(): Long
-  suspend fun createProduct(product: Product)
+FIXME
 
-  suspend fun productsSaved(): Flow<Product>
-}
-#+end_src
+* Typsystem
 
-* Typesystem
-
-#+begin_src kotlin
-interface UnsafeProductMRunnerImplementation  {
-  suspend fun findAllProducts(): Flow<Product>
-  suspend fun findProductById(id: ProductId): Option<Product>
-  suspend fun countProducts(): Long
-  suspend fun createProduct(product: Product)
-
-  suspend fun productsSaved(): Flow<Product>
-}
-#+end_src
+FIXME
 
 * Arrow
 
-#+begin_src kotlin
-interface UnsafeProductMRunnerImplementation  {
-  suspend fun findAllProducts(): Flow<Product>
-  suspend fun findProductById(id: ProductId): Option<Product>
-  suspend fun countProducts(): Long
-  suspend fun createProduct(product: Product)
+#+ATTR_HTML: :height 380px;
+[[file:images/arrow.png][file:images/arrow.png]]
 
-  suspend fun productsSaved(): Flow<Product>
+* Hexagonale Architektur
+
+#+ATTR_HTML: :height 380px;
+[[file:images/hexagonal-architecture.png][file:images/hexagonal-architecture.png]]
+
+Source: [[https://commons.wikimedia.org/wiki/File:Hexagonal_Architecture.svg][Wikimedia Commons, CC-SA 4.0]]
+
+* Profiling
+
+#+begin_src kotlin
+@SuppressWarnings("ThrowsCount", "LongMethod")
+  fun updateWarenkorb(
+    httpWarenkorbVeraenderung: HttpWarenkorbVeraenderung,
+    sessionIdPayload: String,
+  ): Warenkorb {
+    val start = System.currentTimeMillis()
+
+    val produkt = produktRepository.holeProduktViaProduktNummer(ProduktNummer(httpWarenkorbVeraenderung.produktNummer))
+    ....
+
+    val getProduktEnd = System.currentTimeMillis()
+    logger.info { "get Produkt from DB took ${getProduktEnd - start}ms" }
+
+    if (produkt == null) { ... }
+    ...
+    val warenkorbVeraenderungTransformationEnd = System.currentTimeMillis()
+    logger.info { "transform into warenkorb-veränderung took ${warenkorbVeraenderungTransformationEnd - getProduktEnd}ms" }
+    ...
+    val warenkorbVeraenderungValidationEnd = System.currentTimeMillis()
+    logger.info { "warenkorb-veraenderung validation took ${warenkorbVeraenderungValidationEnd - warenkorbVeraenderungTransformationEnd}ms" }
+    ...
+    val getWarenkorbEnd = System.currentTimeMillis()
+    logger.info { "get Warenkorb from DB took ${getWarenkorbEnd - warenkorbVeraenderungValidationEnd}ms" }
+    ...
 }
 #+end_src
+
+* Monaden
+
+#+ATTR_HTML: :width 800px;
+[[file:images/programmierbares-semikolon.png][file:images/programmierbares-semikolon.png]]
+
+[[https://funktionale-programmierung.de/2013/04/18/haskell-monaden.html][=https://funktionale-programmierung.de/2013/04/18/haskell-monaden.html=]]
+
+* Monaden in Kotlin
+
+#+begin_src kotlin
+sealed interface ProductM<out A> {
+  data class FindAllProducts<out A>(val cont: (Flow<Product>) -> ProductM<A>) : ProductM<A>
+
+  data class FindProductById<out A>(val id: ProductId, val cont: (Option<Product>) -> ProductM<A>) : ProductM<A>
+
+  data class CountProducts<out A>(val cont: (Long) -> ProductM<A>) : ProductM<A>
+
+  data class CreateProduct<out A>(val product: Product, val cont: (Unit) -> ProductM<A>) : ProductM<A>
+
+  data class Pure<out A>(val result: A) : ProductM<A>
+}
+#+end_src
+
+* Monaden benutzen
+
+#+begin_src kotlin
+   CreateProduct(product1, {
+   CreateProduct(product2, {
+   FindAllProducts({ products ->
+     ...
+   })})})
+#+end_src
+
+* Kotlin ist nicht Java
+
+#+begin_src kotlin
+   CreateProduct(product1) {
+   CreateProduct(product2) {
+   FindAllProducts { products ->
+     ...
+   }}}
+#+end_src
+
+* Programmbausteine
+
+#+begin_src kotlin
+sealed interface ProductM<out A> {
+
+  companion object {
+    fun findAllProducts(): ProductM<Flow<Product>> = FindAllProducts(::Pure)
+
+    fun findProductById(id: ProductId): ProductM<Option<Product>> = FindProductById(id, ::Pure)
+
+    fun countProducts(): ProductM<Long> = CountProducts(::Pure)
+
+    fun createProduct(product: Product): ProductM<Unit> = CreateProduct(product, ::Pure)
+
+    fun <A> pure(result: A) = Pure(result)
+  }
+}
+#+end_src
+
+* Programmbausteine zusammensetzen
+
+#+begin_src kotlin
+   createproduct(product1).bind {
+   createproduct(product2).bind {
+   findAllProducts.bind { products ->
+     ...
+   }}}
+#+end_src
+
+* Vorher
+
+#+begin_src kotlin
+   CreateProduct(product1) {
+   CreateProduct(product2) {
+   FindAllProducts { products ->
+     ...
+   }}}
+#+end_src
+
+* Coroutinen und Continuations
+
+#+begin_src kotlin
+sealed interface ProductM<out A> {
+
+  suspend fun susp(): A =
+    suspendCoroutine { cocont: Continuation<A> ->
+      val element = cocont.context[ProductCE]!! as ProductCE<A>
+      element.productM = some(
+        bind { result ->
+          cocont.resume(result)
+          element.productM.get()
+        }
+      )
+    }
+}
+#+end_src
+
+* Coroutinen und Continuations
+
+#+begin_src kotlin
+sealed interface ProductM<out A> {
+
+  companion object {
+   fun <A> productM(context0: CoroutineContext = EmptyCoroutineContext, block: suspend ProductMCoroutineDsl.() -> A): ProductM<A> {
+      val element = ProductCE<A>(none())
+      val context = context0 + element
+      val coroutine: suspend () -> A = { ProductMCoroutineDsl().block() }
+      coroutine.startCoroutine(
+        Continuation(context) { result ->
+          result.onFailure { exception ->
+            val currentThread = Thread.currentThread()
+            currentThread.uncaughtExceptionHandler.uncaughtException(currentThread, exception)
+          }
+        }
+      )
+      return element.productM.get()
+    }
+  }
+
+  class ProductCE<A>(var productM: Option<ProductM<A>>) : AbstractCoroutineContextElement(ProductCE) {
+    companion object Key : CoroutineContext.Key<ProductCE<*>>
+  }
+}
+#+end_src
+
+* Coroutine
+
+#+begin_src kotlin
+  productM {
+    createproduct(product1).susp()
+    createproduct(product2).susp()
+    val products = findAllProducts().susp()
+    ...
+  }
+#+end_src
+
+* DSL
+
+#+begin_src kotlin
+class ProductMCoroutineDsl {
+  suspend fun findAllProducts() = ProductM.findAllProducts().susp()
+  suspend fun findProductById(id: ProductId) = ProductM.findProductById(id).susp()
+
+  suspend fun countProducts() = ProductM.countProducts().susp()
+
+  suspend fun createProduct(product: Product) = ProductM.createProduct(product).susp()
+
+  suspend fun productsSaved() = ProductM.productsSaved().susp()
+
+  suspend fun <A> pure(result: A): A = ProductM.pureM(result)
+}
+#+end_src
+
+* DSL
+
+#+begin_src kotlin
+  productM {
+    createproduct(product1)
+    createproduct(product2)
+    val products = findAllProducts()
+    ...
+  }
+#+end_src
+
+* Was ist mit dem Profiling?
+
+FIXME
 
 * Which problems to solve with Functional Programming?
 
@@ -88,45 +261,6 @@ interface UnsafeProductMRunnerImplementation  {
 
 - Separation of procedure and structure => Monad
 - ...
-
-* Monads -> with a lot of brackets
-
-#+begin_src kotlin
-interface UnsafeProductMRunnerImplementation  {
-  suspend fun findAllProducts(): Flow<Product>
-  suspend fun findProductById(id: ProductId): Option<Product>
-  suspend fun countProducts(): Long
-  suspend fun createProduct(product: Product)
-
-  suspend fun productsSaved(): Flow<Product>
-}
-#+end_src
-
-* bind -> still a lot of brackets
-
-#+begin_src kotlin
-interface UnsafeProductMRunnerImplementation  {
-  suspend fun findAllProducts(): Flow<Product>
-  suspend fun findProductById(id: ProductId): Option<Product>
-  suspend fun countProducts(): Long
-  suspend fun createProduct(product: Product)
-
-  suspend fun productsSaved(): Flow<Product>
-}
-#+end_src
-
-* Coroutine -> why always .susp()
-
-#+begin_src kotlin
-interface UnsafeProductMRunnerImplementation  {
-  suspend fun findAllProducts(): Flow<Product>
-  suspend fun findProductById(id: ProductId): Option<Product>
-  suspend fun countProducts(): Long
-  suspend fun createProduct(product: Product)
-
-  suspend fun productsSaved(): Flow<Product>
-}
-#+end_src
 
 * Runner -> but without separation of concern
 
