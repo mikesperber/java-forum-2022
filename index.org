@@ -248,31 +248,54 @@ class ProductMCoroutineDsl {
 
 * Was ist mit dem Profiling?
 
-FIXME
+FIXME: Bild mit "MOMENT MAL" oder so
 
-* Which problems to solve with Functional Programming?
-
-- Stay true to Hexagonal Architecture
-    - Separation of concerns
-    - Pure Domain
-    - ...
-
-* Lets see some code!
-
-- Separation of procedure and structure => Monad
-- ...
-
-* Runner -> but without separation of concern
+* Endlich tut wer was!
 
 #+begin_src kotlin
-interface UnsafeProductMRunnerImplementation  {
-  suspend fun findAllProducts(): Flow<Product>
-  suspend fun findProductById(id: ProductId): Option<Product>
-  suspend fun countProducts(): Long
-  suspend fun createProduct(product: Product)
+class ProductMRunner(private val db: MutableMap<ProductId, Product>) {
 
-  suspend fun productsSaved(): Flow<Product>
+  override tailrec suspend fun <A> run(productM: ProductM<A>): A =
+    when (productM) {
+      is FindAllProducts ->
+        run(productM.cont(db.values.asFlow()))
+      is FindProductById ->
+        run(productM.cont(Option.fromNullable(db[productM.id])))
+      is ProductM.CountProducts ->
+        run(productM.cont(db.size.toLong()))
+      is CreateProduct -> {
+        db[productM.product.id] = productM.product
+        run(productM.cont(Unit))
+      }
+      is Pure -> productM.result
+    }
 }
+#+end_src
+
+* Dependency Injection
+
+#+begin_src kotlin
+interface UnsafeProductMRunner {
+  suspend fun <A> run(productM: ProductM<A>): A
+}
+
+class InMemoryProductM(private val db: MutableMap<ProductId, Product>)
+  : UnsafeProductMRunner
+
+final class MongoProductM(private val mongo: ReactiveFluentMongoOperations)
+   : UnsafeProductMRunner
+#+end_src
+
+* Was ist mit dem Profiling?
+
+#+begin_src kotlin
+// FIXME: annotated InMemoryProductM
+#+end_src
+
+* Separation of Concerns
+
+#+begin_src kotlin
+// decorator pattern
 #+end_src
 
 * Decorator -> still not DDD style
@@ -301,8 +324,26 @@ interface UnsafeProductMRunnerImplementation  {
 }
 #+end_src
 
-* Conclusion
+* Spring
+
+#+begin_src kotlin
+@SpringBootApplication
+class ExampleApplicationOne {
+  @Bean
+  fun runner(mongo: ReactiveFluentMongoOperations,
+	     @Value kafkaBootstrapServers: String): UnsafeProductMRunner =
+    ImplementationProductMRunner(MongoProductMDecorator(mongo = mongo))
+}
+#+end_src
+
+* Purity of domain
 
 - Spring
 - Purity of domain
 - ...
+
+* TODOs
+
+- link to code
+- iSAQB meetup
+  
