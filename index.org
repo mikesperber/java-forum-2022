@@ -6,18 +6,20 @@
 #+REVEAL_TRANS: none
 #+OPTIONS: toc:nil reveal-center:f H:4
 
-* BLUME2000 Kotlin project: Introduction to Functional Programming
+* Funktionale Programmierung
 
-- Rebuild whole shop
-- Use Kotlin
-- Use Functional Programming
-- Let's have a training
+#+ATTR_HTML: :height 380px;
+[[file:images/Paradiso_Canto_31.jpg][file:images/Paradiso_Canto_31.jpg]]
 
-* Did it help?
+* BLUME2000 2020 - Schulung "Funktionale Programmierung"
 
-- No – Why not?
-- The training was not in Kotlin
-- We want to do better now
+#+ATTR_HTML: :width 1000px;
+[[file:images/drracket.png][file:images/drracket.png]]
+
+* BLUME2000 2020 - Realität
+
+#+ATTR_HTML: :width 1000px;
+[[file:images/kotlin-validation.png][file:~/data/talks/java-forum-2022/images/kotlin-validation.png]]
 
 * Post Mortem: How to do Functional Programming in Kotlin?
 
