@@ -297,9 +297,57 @@ final class MongoProductM(private val mongo: ReactiveFluentMongoOperations)
 * Separation of Concerns
 
 #+begin_src kotlin
-// decorator pattern
+interface UnsafeProductMRunnerImplementation  {
+  suspend fun findAllProducts(): Flow<Product>
+  suspend fun findProductById(id: ProductId): Option<Product>
+  suspend fun countProducts(): Long
+  suspend fun createProduct(product: Product)
+}
+
+abstract class UnsafeProductMRunnerDecorator(private val delegate: UnsafeProductMRunnerImplementation) : UnsafeProductMRunnerImplementation {
+  override suspend fun findAllProducts(): Flow<Product> = delegate.findAllProducts()
+  override suspend fun findProductById(id: ProductId): Option<Product> = delegate.findProductById(id)
+  override suspend fun countProducts(): Long = delegate.countProducts()
+  override suspend fun createProduct(product: Product) = delegate.createProduct(product)
+}
 #+end_src
 
+* Profiling-Decorator
+
+#+begin_src kotlin
+data class ProfilingRecord(val opSummary: String, val millis: Long)
+
+class ProfilingRecorder(var records: MutableList<ProfilingRecord>) {
+  suspend fun <A> run(summary: String, op: suspend () -> A): A {
+    val start = System.currentTimeMillis()
+    val result = op()
+    val end = System.currentTimeMillis()
+    records.add(ProfilingRecord(summary, end - start))
+    result
+  }
+}
+#+end_src
+
+* Profiling-Decorator
+
+#+begin_src kotlin
+class ProfilingProductMDecoratorprivate(val delegate: UnsafeProductMRunnerImplementation,
+                                        val recorder : ProfilingRecorder)
+  : UnsafeProductMRunnerDecorator(delegate) {
+  override suspend fun findAllProducts(): Flow<Product> =
+    recorder.run("findAllProducts()") { super.findAllProducts() }
+
+  override suspend fun findProductById(id: ProductId): Option<Product> =
+    recorder.run("findProcuctById(" + id.toString() + ")") { super.findProductById(id) }
+
+  override suspend fun countProducts(): Long =
+    recorder.run("countProdcuts") { super.countProducts() }
+
+  override suspend fun createProduct(product: Product) {
+    recorder.run("createProduct(" + product.toString() + ")") { super.createProduct(product) }
+  }
+}
+#+end_src
 * Decorator -> still not DDD style
 
 #+begin_src kotlin
