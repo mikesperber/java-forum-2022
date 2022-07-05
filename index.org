@@ -1,10 +1,24 @@
-#+title: Function Domain Driven Design with Kotlin
+#+title: Funktionale Architektur mit Kotlin
 #+author: Michael Sperber & Benedikt Stemmildt
 #+REVEAL_PLUGINS: (notes)
 #+REVEAL_THEME: ./css/themes/active.css
 #+REVEAL_HLEVEL: 100
 #+REVEAL_TRANS: none
 #+OPTIONS: num:nil toc:nil reveal-center:f reveal_slide_number:t reveal_title_slide:nil
+
+* Funktionale Architektur mit Kotlin
+
+*Mike Sperber*
+
+Active Group GmbH
+
+=@sperbsen=
+
+*Benedikt Stemmildt+
+
+BLUME2000
+
+=@slashBene=
 
 * Funktionale Programmierung
 
@@ -201,8 +215,8 @@ sealed interface ProductM<out A> {
 
 #+begin_src kotlin
   productM {
-    createproduct(product1).susp()
-    createproduct(product2).susp()
+    createProduct(product1).susp()
+    createProduct(product2).susp()
     val products = findAllProducts().susp()
     ...
   }
@@ -229,8 +243,8 @@ class ProductMCoroutineDsl {
 
 #+begin_src kotlin
   productM {
-    createproduct(product1)
-    createproduct(product2)
+    createProduct(product1)
+    createProduct(product2)
     val products = findAllProducts()
     ...
   }
@@ -238,29 +252,25 @@ class ProductMCoroutineDsl {
 
 * Was ist mit dem Profiling?
 
-FIXME: Bild mit "MOMENT MAL" oder so
+#+REVEAL_HTML: <img src="images/Herbert_Schade,_Alain_Mimoun,_Emil_Zátopek_1952.jpg" class="r-stretch">
 
-* Endlich tut wer was!
+* Läuft
 
 #+begin_src kotlin
-FIXME: function
-class ProductMRunner(private val db: MutableMap<ProductId, Product>) {
-
-  override tailrec suspend fun <A> run(productM: ProductM<A>): A =
-    when (productM) {
-      is FindAllProducts ->
-        run(productM.callback(db.values.asFlow()))
-      is FindProductById ->
-        run(productM.callback(Option.fromNullable(db[productM.id])))
-      is ProductM.CountProducts ->
-        run(productM.callback(db.size.toLong()))
-      is CreateProduct -> {
-        db[productM.product.id] = productM.product
-        run(productM.callback(Unit))
-      }
-      is Pure -> productM.result
+override tailrec suspend fun <A> run(productM: ProductM<A>, db: MutableMap<ProductId, Product>): A =
+  when (productM) {
+    is FindAllProducts ->
+      run(productM.callback(db.values.asFlow()), db)
+    is FindProductById ->
+      run(productM.callback(Option.fromNullable(db[productM.id])), db)
+    is ProductM.CountProducts ->
+      run(productM.callback(db.size.toLong()), db)
+    is CreateProduct -> {
+      db[productM.product.id] = productM.product
+      run(productM.callback(Unit), db)
     }
-}
+    is Pure -> productM.result
+  }
 #+end_src
 
 * Dependency Injection
@@ -358,10 +368,6 @@ class ProfilingProductMDecoratorprivate(val delegate: UnsafeProductMRunnerImplem
 }
 #+end_src
 
-* Decorator -> still not DDD style
-
-???
-
 * Spring
 
 #+begin_src kotlin
@@ -385,14 +391,19 @@ class ExampleApplicationOne {
 }
 #+end_src
 
-* Purity of domain
+* Zusammenfassung
 
-- Spring
-- Purity of domain
-- ...
+- FP kann OO/hexagonale Architektur verbessern
+- Kotlin + FP = ❤️
+- Monaden FTW
+- funktionale Sprachen + FP = ❤️❤️❤️
 
-* TODOs
+https://gitlab.com/BeneStem/verticalization-example-service-one
 
-- link to code
-- iSAQB meetup
-  
+* iSAQB-Community-Treffen, Stuttgart
+
+25.7.2022, 18:00, Kulturkiosk
+
+https://www.meetup.com/isaqb-community/events/286631012/
+
+#+REVEAL_HTML: <img src="images/isaqb-community.jpeg" class="r-stretch">
