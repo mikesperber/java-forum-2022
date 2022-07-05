@@ -315,12 +315,12 @@ html, body {
   position: absolute;
   content: "";
   display: block;
-  background: url("logo.svg") left top no-repeat;
+  background: url("ag-blume2000.png") left top no-repeat;
   width: 220px;
-  height: 80px;
+  height: 148px;
   bottom: 15px;
-  right: 4em;
-  background-size: 220px 80px;
+  right: 15px;
+  background-size: 220px 148px;
   z-index: 9999; }
 
 .reveal pre {
