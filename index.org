@@ -72,18 +72,20 @@ Source: [[https://commons.wikimedia.org/wiki/File:Hexagonal_Architecture.svg][Wi
 
 #+begin_src kotlin
 sealed interface ProductM<out A> {
-  data class FindAllProducts<out A>(val cont: (Flow<Product>) -> ProductM<A>)
+  data class FindAllProducts<out A>
+               (val callback: (Flow<Product>) -> ProductM<A>)
       : ProductM<A>
-
-  data class FindProductById<out A>(val id: ProductId, val cont: (Option<Product>) -> ProductM<A>)
+  data class FindProductById<out A>
+               (val id: ProductId,
+		val callback: (Option<Product>) -> ProductM<A>)
       : ProductM<A>
-
-  data class CountProducts<out A>(val cont: (Long) -> ProductM<A>)
+  data class CountProducts<out A>
+               (val callback: (Long) -> ProductM<A>)
       : ProductM<A>
-
-  data class CreateProduct<out A>(val product: Product, val cont: (Unit) -> ProductM<A>)
+  data class CreateProduct<out A>
+               (val product: Product,
+		val callback: (Unit) -> ProductM<A>)
       : ProductM<A>
-
   data class Pure<out A>(val result: A) : ProductM<A>
 }
 #+end_src
@@ -176,7 +178,8 @@ sealed interface ProductM<out A> {
 sealed interface ProductM<out A> {
 
   companion object {
-   fun <A> productM(context0: CoroutineContext = EmptyCoroutineContext, block: suspend ProductMCoroutineDsl.() -> A): ProductM<A> {
+   fun <A> productM(context0: CoroutineContext = EmptyCoroutineContext, block:
+		    suspend ProductMCoroutineDsl.() -> A): ProductM<A> {
       val element = ProductCE<A>(none())
       val context = context0 + element
       val coroutine: suspend () -> A = { ProductMCoroutineDsl().block() }
@@ -190,10 +193,6 @@ sealed interface ProductM<out A> {
       )
       return element.productM.get()
     }
-  }
-
-  class ProductCE<A>(var productM: Option<ProductM<A>>) : AbstractCoroutineContextElement(ProductCE) {
-    companion object Key : CoroutineContext.Key<ProductCE<*>>
   }
 }
 #+end_src
@@ -250,14 +249,14 @@ class ProductMRunner(private val db: MutableMap<ProductId, Product>) {
   override tailrec suspend fun <A> run(productM: ProductM<A>): A =
     when (productM) {
       is FindAllProducts ->
-        run(productM.cont(db.values.asFlow()))
+        run(productM.callback(db.values.asFlow()))
       is FindProductById ->
-        run(productM.cont(Option.fromNullable(db[productM.id])))
+        run(productM.callback(Option.fromNullable(db[productM.id])))
       is ProductM.CountProducts ->
-        run(productM.cont(db.size.toLong()))
+        run(productM.callback(db.size.toLong()))
       is CreateProduct -> {
         db[productM.product.id] = productM.product
-        run(productM.cont(Unit))
+        run(productM.callback(Unit))
       }
       is Pure -> productM.result
     }
