@@ -14,7 +14,7 @@ pdf: $(PDF)
 .PHONY: pdf
 
 %.pdf: %.html
-	nix run --extra-experimental-features nix-command --extra-experimental-features flakes --no-sandbox .#decktape -- -s 1920x1080 $(MAYBE_CHROME_PATH) "$<" "$@"
+	nix run --extra-experimental-features nix-command --extra-experimental-features flakes --no-sandbox .#decktape -- --size='2048x1536'  $(MAYBE_CHROME_PATH) "$<" "$@"
 
 clean:
 	rm -f $(HTML)

@@ -4,50 +4,31 @@
 #+REVEAL_THEME: ./css/themes/active.css
 #+REVEAL_HLEVEL: 100
 #+REVEAL_TRANS: none
-#+OPTIONS: num:nil toc:nil reveal-center:f reveal_slide_number:t
+#+OPTIONS: num:nil toc:nil reveal-center:f reveal_slide_number:t reveal_title_slide:nil
 
 * Funktionale Programmierung
 
-#+ATTR_HTML: :height 380px;
-[[file:images/Paradiso_Canto_31.jpg][file:images/Paradiso_Canto_31.jpg]]
+#+REVEAL_HTML: <img src="images/Paradiso_Canto_31.jpg" class="r-stretch">
 
 * BLUME2000 2020 - Schulung "Funktionale Programmierung"
 
-#+ATTR_HTML: :width 1000px;
-[[file:images/drracket.png][file:images/drracket.png]]
+#+REVEAL_HTML: <img src="images/drracket.png" class="r-stretch">
 
 * BLUME2000 2020 - Realität
 
-#+ATTR_HTML: :width 1000px;
-[[file:images/kotlin-validation.png][file:~/data/talks/java-forum-2022/images/kotlin-validation.png]]
+#+REVEAL_HTML: <img src="images/kotlin-validation.png" class="r-stretch">
 
-* Post Mortem: How to do Functional Programming in Kotlin?
+* Functional Programming in Kotlin?
 
 - Lists / Option
 - Validation
-- Typeystem
+- Typystem
 
-* Lists / Option
-
-FIXME
-
-* Validation
-
-FIXME
-
-* Typsystem
-
-FIXME
-
-* Arrow
-
-#+ATTR_HTML: :height 380px;
-[[file:images/arrow.png][file:images/arrow.png]]
+#+REVEAL_HTML: <img src="images/arrow.png" class="r-stretch">
 
 * Hexagonale Architektur
 
-#+ATTR_HTML: :height 380px;
-[[file:images/hexagonal-architecture.png][file:images/hexagonal-architecture.png]]
+#+REVEAL_HTML: <img src="images/hexagonal-architecture.png" class="r-stretch">
 
 Source: [[https://commons.wikimedia.org/wiki/File:Hexagonal_Architecture.svg][Wikimedia Commons, CC-SA 4.0]]
 
@@ -83,8 +64,7 @@ Source: [[https://commons.wikimedia.org/wiki/File:Hexagonal_Architecture.svg][Wi
 
 * Monaden
 
-#+ATTR_HTML: :width 800px;
-[[file:images/programmierbares-semikolon.png][file:images/programmierbares-semikolon.png]]
+#+REVEAL_HTML: <img src="images/programmierbares-semikolon.png" class="r-stretch">
 
 [[https://funktionale-programmierung.de/2013/04/18/haskell-monaden.html][=https://funktionale-programmierung.de/2013/04/18/haskell-monaden.html=]]
 
@@ -152,8 +132,8 @@ sealed interface ProductM<out A> {
 * Programmbausteine zusammensetzen
 
 #+begin_src kotlin
-   val c1 = createproduct(product1)
-   val c2 = createproduct(product2)
+   val c1 = createProduct(product1)
+   val c2 = createProduct(product2)
 
    c1.bind {
    c2.bind {
@@ -264,6 +244,7 @@ FIXME: Bild mit "MOMENT MAL" oder so
 * Endlich tut wer was!
 
 #+begin_src kotlin
+FIXME: function
 class ProductMRunner(private val db: MutableMap<ProductId, Product>) {
 
   override tailrec suspend fun <A> run(productM: ProductM<A>): A =
@@ -300,7 +281,43 @@ final class MongoProductM(private val mongo: ReactiveFluentMongoOperations)
 * Was ist mit dem Profiling?
 
 #+begin_src kotlin
-// FIXME: annotated InMemoryProductM
+data class ProfilingRecord(val opSummary: String, val millis: Long)
+
+class ProfilingRecorder(var records: MutableList<ProfilingRecord>) {
+  suspend fun <A> run(summary: String, op: suspend () -> A): A {
+    val start = System.currentTimeMillis()
+    val result = op()
+    val end = System.currentTimeMillis()
+    records.add(ProfilingRecord(summary, end - start))
+    return result
+  }
+}
+#+end_src
+
+* Profiling-Runner
+
+#+begin_src kotlin
+class InMemoryProductM(private val db: MutableMap<ProductId, Product>),
+                       private val recorder: ProfilingRecorder)
+  : UnsafeProductMRunner {
+
+  override tailrec suspend fun <A> run(productM: ProductM<A>): A =
+    when (productM) {
+      is FindAllProducts ->
+        run(productM.cont(recorder.run("findAllProducts()") { db.values.asFlow() } ))
+      is FindProductById ->
+        run(productM.cont(recorder.run("findProcuctById(" + productM.id.toString() + ")") {
+          Option.fromNullable(db[productM.id])
+        }))
+      is CountProducts ->
+        run(productM.cont(recorder.run("countProcucts()") { db.size.toLong() }))
+      is CreateProduct -> {
+        db[productM.product.id] = productM.product
+        run(productM.cont(Unit))
+      }
+      is Pure -> productM.result
+    }
+}
 #+end_src
 
 * Separation of Concerns
@@ -313,27 +330,12 @@ interface UnsafeProductMRunnerImplementation  {
   suspend fun createProduct(product: Product)
 }
 
-abstract class UnsafeProductMRunnerDecorator(private val delegate: UnsafeProductMRunnerImplementation) : UnsafeProductMRunnerImplementation {
+abstract class UnsafeProductMRunnerDecorator(private val delegate: UnsafeProductMRunnerImplementation)
+    : UnsafeProductMRunnerImplementation {
   override suspend fun findAllProducts(): Flow<Product> = delegate.findAllProducts()
   override suspend fun findProductById(id: ProductId): Option<Product> = delegate.findProductById(id)
   override suspend fun countProducts(): Long = delegate.countProducts()
   override suspend fun createProduct(product: Product) = delegate.createProduct(product)
-}
-#+end_src
-
-* Profiling-Decorator
-
-#+begin_src kotlin
-data class ProfilingRecord(val opSummary: String, val millis: Long)
-
-class ProfilingRecorder(var records: MutableList<ProfilingRecord>) {
-  suspend fun <A> run(summary: String, op: suspend () -> A): A {
-    val start = System.currentTimeMillis()
-    val result = op()
-    val end = System.currentTimeMillis()
-    records.add(ProfilingRecord(summary, end - start))
-    result
-  }
 }
 #+end_src
 
@@ -352,36 +354,14 @@ class ProfilingProductMDecoratorprivate(val delegate: UnsafeProductMRunnerImplem
   override suspend fun countProducts(): Long =
     recorder.run("countProdcuts") { super.countProducts() }
 
-  override suspend fun createProduct(product: Product) {
+  override suspend fun createProduct(product: Product) =
     recorder.run("createProduct(" + product.toString() + ")") { super.createProduct(product) }
-  }
 }
 #+end_src
+
 * Decorator -> still not DDD style
 
-#+begin_src kotlin
-interface UnsafeProductMRunnerImplementation  {
-  suspend fun findAllProducts(): Flow<Product>
-  suspend fun findProductById(id: ProductId): Option<Product>
-  suspend fun countProducts(): Long
-  suspend fun createProduct(product: Product)
-
-  suspend fun productsSaved(): Flow<Product>
-}
-#+end_src
-
-* Move stuff around -> Nice.
-
-#+begin_src kotlin
-interface UnsafeProductMRunnerImplementation  {
-  suspend fun findAllProducts(): Flow<Product>
-  suspend fun findProductById(id: ProductId): Option<Product>
-  suspend fun countProducts(): Long
-  suspend fun createProduct(product: Product)
-
-  suspend fun productsSaved(): Flow<Product>
-}
-#+end_src
+???
 
 * Spring
 
@@ -389,9 +369,20 @@ interface UnsafeProductMRunnerImplementation  {
 @SpringBootApplication
 class ExampleApplicationOne {
   @Bean
-  fun runner(mongo: ReactiveFluentMongoOperations,
-	     @Value kafkaBootstrapServers: String): UnsafeProductMRunner =
-    ImplementationProductMRunner(MongoProductMDecorator(mongo = mongo))
+  fun outRunner(mongo: ReactiveFluentMongoOperations,
+		@Value("\${spring.kafka.bootstrap-servers}") kafkaBootstrapServers: String)
+      : UnsafeProductMRunner {
+    val impl =
+      KafkaProducerProductMDecorator(
+        bootstrapAddress = kafkaBootstrapServers,
+        delegate = KafkaConsumerProductMDecorator(
+          bootstrapAddress = kafkaBootstrapServers,
+          delegate = MongoProductMDecorator(mongo = mongo)
+        )
+      )
+    return ImplementationProductMRunner(impl)
+  }
+  ...
 }
 #+end_src
 
