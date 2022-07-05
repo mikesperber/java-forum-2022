@@ -14,7 +14,7 @@ Active Group GmbH
 
 =@sperbsen=
 
-*Benedikt Stemmildt+
+*Benedikt Stemmildt*
 
 BLUME2000
 
@@ -192,8 +192,8 @@ sealed interface ProductM<out A> {
 sealed interface ProductM<out A> {
 
   companion object {
-   fun <A> productM(context0: CoroutineContext = EmptyCoroutineContext, block:
-		    suspend ProductMCoroutineDsl.() -> A): ProductM<A> {
+   fun <A> productM(context0: CoroutineContext = EmptyCoroutineContext,
+		    block: suspend ProductMCoroutineDsl.() -> A): ProductM<A> {
       val element = ProductCE<A>(none())
       val context = context0 + element
       val coroutine: suspend () -> A = { ProductMCoroutineDsl().block() }
@@ -257,13 +257,15 @@ class ProductMCoroutineDsl {
 * Läuft
 
 #+begin_src kotlin
-override tailrec suspend fun <A> run(productM: ProductM<A>, db: MutableMap<ProductId, Product>): A =
+override tailrec suspend fun <A>
+  run(productM: ProductM<A>,
+      db: MutableMap<ProductId, Product>): A =
   when (productM) {
     is FindAllProducts ->
       run(productM.callback(db.values.asFlow()), db)
     is FindProductById ->
       run(productM.callback(Option.fromNullable(db[productM.id])), db)
-    is ProductM.CountProducts ->
+    is CountProducts ->
       run(productM.callback(db.size.toLong()), db)
     is CreateProduct -> {
       db[productM.product.id] = productM.product
@@ -280,10 +282,10 @@ interface UnsafeProductMRunner {
   suspend fun <A> run(productM: ProductM<A>): A
 }
 
-class InMemoryProductM(private val db: MutableMap<ProductId, Product>)
+class InMemoryProductM(val db: MutableMap<ProductId, Product>)
   : UnsafeProductMRunner
 
-final class MongoProductM(private val mongo: ReactiveFluentMongoOperations)
+final class MongoProductM(val mongo: ReactiveFluentMongoOperations)
    : UnsafeProductMRunner
 #+end_src
 
@@ -293,12 +295,14 @@ final class MongoProductM(private val mongo: ReactiveFluentMongoOperations)
 data class ProfilingRecord(val opSummary: String, val millis: Long)
 
 class ProfilingRecorder(var records: MutableList<ProfilingRecord>) {
-  suspend fun <A> run(summary: String, op: suspend () -> A): A {
-    val start = System.currentTimeMillis()
-    val result = op()
-    val end = System.currentTimeMillis()
-    records.add(ProfilingRecord(summary, end - start))
-    return result
+  var then: Long = -1
+  lateinit var summary: String
+
+  fun opStarted(summary: String) {
+    val now = System.currentTimeMillis()
+    if (then != -1L)
+      records.add(ProfilingRecord(this.summary, now - then))
+    this.summary = summary
   }
 }
 #+end_src
@@ -306,66 +310,59 @@ class ProfilingRecorder(var records: MutableList<ProfilingRecord>) {
 * Profiling-Runner
 
 #+begin_src kotlin
-class InMemoryProductM(private val db: MutableMap<ProductId, Product>),
-                       private val recorder: ProfilingRecorder)
+class ProfilingInMemoryProductM(val db: MutableMap<ProductId, Product>,
+                                val recorder: ProfilingRecorder)
   : UnsafeProductMRunner {
-
-  override tailrec suspend fun <A> run(productM: ProductM<A>): A =
-    when (productM) {
+  override tailrec suspend fun <A> run(productM: ProductM<A>): A {
+    recorder.opStarted(productM.summary())
+    return when (productM) {
       is FindAllProducts ->
-        run(productM.cont(recorder.run("findAllProducts()") { db.values.asFlow() } ))
-      is FindProductById ->
-        run(productM.cont(recorder.run("findProcuctById(" + productM.id.toString() + ")") {
-          Option.fromNullable(db[productM.id])
-        }))
-      is CountProducts ->
-        run(productM.cont(recorder.run("countProcucts()") { db.size.toLong() }))
-      is CreateProduct -> {
-        db[productM.product.id] = productM.product
-        run(productM.cont(Unit))
-      }
-      is Pure -> productM.result
+        run(productM.callback(db.values.asFlow()))
+      ...
     }
+  }
 }
 #+end_src
 
 * Separation of Concerns
 
 #+begin_src kotlin
-interface UnsafeProductMRunnerImplementation  {
-  suspend fun findAllProducts(): Flow<Product>
-  suspend fun findProductById(id: ProductId): Option<Product>
-  suspend fun countProducts(): Long
-  suspend fun createProduct(product: Product)
-}
+class ProfilingProductM(val db: MutableMap<ProductId, Product>,
+                        val recorder: ProfilingRecorder)
+  : InMemoryProductM(db) {
 
-abstract class UnsafeProductMRunnerDecorator(private val delegate: UnsafeProductMRunnerImplementation)
-    : UnsafeProductMRunnerImplementation {
-  override suspend fun findAllProducts(): Flow<Product> = delegate.findAllProducts()
-  override suspend fun findProductById(id: ProductId): Option<Product> = delegate.findProductById(id)
-  override suspend fun countProducts(): Long = delegate.countProducts()
-  override suspend fun createProduct(product: Product) = delegate.createProduct(product)
+  override suspend fun <A> run(productM: ProductM<A>): A {
+    recorder.opStarted(productM.summary())
+    return super.run(productM)
+  }
 }
 #+end_src
 
-* Profiling-Decorator
+#+ATTR_REVEAL: :frag appear
+- ☹️ =InMemoryProductM= muss =open= sein
+#+ATTR_REVEAL: :frag appear
+- ☹️ Was ist mit dem =tailrec=?
+
+* Profiling-Transformation
 
 #+begin_src kotlin
-class ProfilingProductMDecoratorprivate(val delegate: UnsafeProductMRunnerImplementation,
-                                        val recorder : ProfilingRecorder)
-  : UnsafeProductMRunnerDecorator(delegate) {
-  override suspend fun findAllProducts(): Flow<Product> =
-    recorder.run("findAllProducts()") { super.findAllProducts() }
-
-  override suspend fun findProductById(id: ProductId): Option<Product> =
-    recorder.run("findProcuctById(" + id.toString() + ")") { super.findProductById(id) }
-
-  override suspend fun countProducts(): Long =
-    recorder.run("countProdcuts") { super.countProducts() }
-
-  override suspend fun createProduct(product: Product) =
-    recorder.run("createProduct(" + product.toString() + ")") { super.createProduct(product) }
-}
+fun <A> profile(productM: ProductM<A>, recorder: ProfilingRecorder)
+    : ProductM<A> =
+  when (productM) {
+    is FindAllProducts -> {
+      recorder.opStarted(productM.summary())
+      FindAllProducts() { products ->
+	profile(productM.callback(products), recorder)
+      }
+    }
+    is FindProductById -> {
+      recorder.opStarted(productM.summary())
+      FindProductById(productM.id) { oProduct ->
+        profile(productM.callback(oProduct), recorder)
+      }
+    }
+    ...
+  }
 #+end_src
 
 * Spring
@@ -375,7 +372,8 @@ class ProfilingProductMDecoratorprivate(val delegate: UnsafeProductMRunnerImplem
 class ExampleApplicationOne {
   @Bean
   fun outRunner(mongo: ReactiveFluentMongoOperations,
-		@Value("\${spring.kafka.bootstrap-servers}") kafkaBootstrapServers: String)
+		@Value("\${spring.kafka.bootstrap-servers}")
+		  kafkaBootstrapServers: String)
       : UnsafeProductMRunner {
     val impl =
       KafkaProducerProductMDecorator(
@@ -396,7 +394,9 @@ class ExampleApplicationOne {
 - FP kann OO/hexagonale Architektur verbessern
 - Kotlin + FP = ❤️
 - Monaden FTW
+- Effekt-Kombination mit Decorator-Pattern
 - funktionale Sprachen + FP = ❤️❤️❤️
+- "proper tail calls" fehlen immer noch auf der JVM
 
 https://gitlab.com/BeneStem/verticalization-example-service-one
 
