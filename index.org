@@ -168,6 +168,12 @@ sealed interface ProductM<out A> {
    }}}
 #+end_src
 
+* Pyramid of Doom
+
+#+REVEAL_HTML: <img src="images/pyramid-of-doom.png" class="r-stretch">
+
+[[http://calculist.org/blog/2011/12/14/why-coroutines-wont-work-on-the-web/][Dave Herman: Why coroutines won’t work on the web]]
+
 * Coroutinen und Continuations
 
 #+begin_src kotlin
@@ -193,7 +199,8 @@ sealed interface ProductM<out A> {
 
   companion object {
    fun <A> productM(context0: CoroutineContext = EmptyCoroutineContext,
-		    block: suspend ProductMCoroutineDsl.() -> A): ProductM<A> {
+		    block: suspend ProductMCoroutineDsl.() -> A)
+       : ProductM<A> {
       val element = ProductCE<A>(none())
       val context = context0 + element
       val coroutine: suspend () -> A = { ProductMCoroutineDsl().block() }
